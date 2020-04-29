@@ -11,6 +11,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
 import graphql.schema.idl.TypeRuntimeWiring;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -39,7 +41,7 @@ import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 @Component
 public class GraphqlResolverFactory implements ApplicationContextAware {
-
+    private Logger logger = LoggerFactory.getLogger(getClass());
     private ApplicationContext context;
 
     @Autowired
@@ -63,10 +65,11 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
     private Map<String, Map<String, DataFetcher>> wfResolvers;
 
+
     @PostConstruct
     void init() {
         if(graphqlProperties.isLog()) {
-            System.out.println("init Graphql setting");
+            logger.info("init GraphQL start");
         }
         ClassPathScanningCandidateComponentProvider cp = new ClassPathScanningCandidateComponentProvider(false);
         cp.addIncludeFilter(new AnnotationTypeFilter(Query.class));
@@ -76,6 +79,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         Set<BeanDefinition> bd = cp.findCandidateComponents(graphqlProperties.getScanPath());
         ClassLoader loader = GraphqlResolverFactory.class.getClassLoader();
         Map<String, Map<String, DataFetcher>> resolvers = new HashMap();
+        Map<String, Map<String, Class<?>>> originClassResolvers = new HashMap();
         Iterator var5 = bd.iterator();
 
         while(var5.hasNext()) {
@@ -100,9 +104,16 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             methodQueryValue = StringUtils.isEmpty(q.value()) ? value : q.value();
                         }
                         Map<String, DataFetcher> resolverMap = resolvers.get(methodQueryValue);
+                        Map<String, Class<?>> resolverClassMap = originClassResolvers.get(methodQueryValue);
+
                         if (resolverMap == null) {
                             resolverMap = new LinkedHashMap<>();
                         }
+                        if (resolverClassMap == null) {
+                           resolverClassMap = new LinkedHashMap<>();
+                        }
+
+
                         QueryMethod qm = method.getAnnotation(QueryMethod.class);
                         String methodValue = qm.value();
                         if (StringUtils.isEmpty(methodValue)) {
@@ -140,7 +151,6 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
                                             Object v = dataFetchingEnvironment.getArgument(qfv);
                                             Class<?> clz = clsTypes[i];
-//                                            System.out.println("clz@@@@ "+clz+ " val@@>>>"+ v);
                                             v = objectMapper.convertValue(v, clz);
                                             list.add(v);
                                             break;
@@ -151,7 +161,9 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             }
                             return method.invoke(this.context.getBean(c), list.toArray(new Object[list.size()]));
                         };
+                        resolverClassMap.put(methodValue, c);
                         resolverMap.put(methodValue, df);
+                        originClassResolvers.put(methodQueryValue, resolverClassMap);
                         resolvers.put(methodQueryValue, resolverMap);
                     }
                 }
@@ -161,8 +173,12 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         }
         this.wfResolvers = resolvers;
         if (graphqlProperties.isLog()) {
-            System.out.println("init Graphql end.");
-            System.out.println("graphql resolvers@>>>>> "+this.wfResolvers);
+            if (originClassResolvers != null) {
+                originClassResolvers.forEach((k,v) -> {
+                    logger.info("GraphQL resolvers @"+ k + " ===>" + v );
+                });
+            }
+            logger.info("init GraphQL end.");
         }
     }
 
