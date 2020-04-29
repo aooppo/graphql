@@ -65,7 +65,9 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
     @PostConstruct
     void init() {
-        System.out.println("init Graphql setting");
+        if(graphqlProperties.isLog()) {
+            System.out.println("init Graphql setting");
+        }
         ClassPathScanningCandidateComponentProvider cp = new ClassPathScanningCandidateComponentProvider(false);
         cp.addIncludeFilter(new AnnotationTypeFilter(Query.class));
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
@@ -158,8 +160,10 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
             }
         }
         this.wfResolvers = resolvers;
-        System.out.println("init Graphql end.");
-        System.out.println("graphql resolvers@>>>>> "+this.wfResolvers);
+        if (graphqlProperties.isLog()) {
+            System.out.println("init Graphql end.");
+            System.out.println("graphql resolvers@>>>>> "+this.wfResolvers);
+        }
     }
 
     public List<TypeRuntimeWiring.Builder> getBuilders() {

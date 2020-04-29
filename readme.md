@@ -4,7 +4,7 @@
 <dependency>
     <groupId>cc.voox</groupId>
     <artifactId>graphql</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -43,6 +43,7 @@ public class GraphQLConfig {
         pageCount: Int
     }
 ```
+####  define resolvers
  - use @Query in entity class or method
  - use @QueryMethod in method 
  - use @QueryField in parameter of method
