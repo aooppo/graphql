@@ -70,13 +70,6 @@
         <version>3.5</version>
     </dependency>
 
-    <!-- spring-beans -->
-    <dependency>
-        <groupId>org.springframework</groupId>
-        <artifactId>spring-beans</artifactId>
-        <version>5.0.4.RELEASE</version>
-        <optional>true</optional>
-    </dependency>
 </dependencies>
 
 <profiles>
