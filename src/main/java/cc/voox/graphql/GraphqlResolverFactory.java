@@ -20,7 +20,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
-import org.springframework.context.annotation.Primary;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
@@ -122,6 +121,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         Annotation[][] ats = method.getParameterAnnotations();
                         Class<?>[] clsTypes = method.getParameterTypes();
                         DataFetcher df = dataFetchingEnvironment -> {
+                            GraphQLContextUtil.add(dataFetchingEnvironment);
                             List<Object> list = new ArrayList<>();
                             int i = 0;
                             for (Annotation[] as: ats) {
