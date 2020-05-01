@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
+import org.springframework.core.type.filter.AssignableTypeFilter;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -30,6 +31,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,8 +64,12 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     @Autowired
     private ObjectMapper objectMapper;
 
-    private Map<String, Map<String, DataFetcher>> wfResolvers;
+    private Map<String, Map<String, DataFetcher>> wfResolvers = new HashMap<>();
+    private Set<IScalar> scalarSet = new HashSet<>();
 
+    protected Set<IScalar> getScalarSet() {
+        return scalarSet;
+    }
 
     @PostConstruct
     void init() {
@@ -72,6 +78,8 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         }
         ClassPathScanningCandidateComponentProvider cp = new ClassPathScanningCandidateComponentProvider(false);
         cp.addIncludeFilter(new AnnotationTypeFilter(Query.class));
+        cp.addIncludeFilter(new AssignableTypeFilter(IScalar.class));
+
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
            throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
         }
@@ -87,6 +95,21 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
             try {
                 Class<?> c = loader.loadClass(beanName);
+                Class<?>[] interfaces = c.getInterfaces();
+                Set<Class<?>> set = new HashSet<>();
+                for(Class<?> inter: interfaces) {
+                    set.add(inter);
+                }
+                if (set.contains(IScalar.class) || c.isAssignableFrom(IScalar.class)) {
+                    IScalar iScalar;
+                    try {
+                        iScalar = (IScalar) c.newInstance();
+                    } catch (Exception e) {
+                        throw new GraphQLException("Cannot initial scalar"+ c);
+                    }
+                    scalarSet.add(iScalar);
+                    continue;
+                }
                 Query query = (Query)c.getAnnotation(Query.class);
                 String value = query.value();
                 if (StringUtils.isEmpty(value)) {
@@ -176,6 +199,11 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
             if (originClassResolvers != null) {
                 originClassResolvers.forEach((k,v) -> {
                     logger.info("GraphQL resolvers @"+ k + " ===>" + v );
+                });
+            }
+            if (scalarSet != null) {
+                scalarSet.forEach(s -> {
+                    logger.info("GraphQL scalar @"+ s.getName() + " ===>" + s.getClass() );
                 });
             }
             logger.info("init GraphQL end.");

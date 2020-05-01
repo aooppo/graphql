@@ -3,6 +3,8 @@ package cc.voox.graphql;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import graphql.GraphQL;
+import graphql.scalars.ExtendedScalars;
+import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
@@ -11,7 +13,6 @@ import graphql.schema.idl.TypeDefinitionRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
@@ -46,7 +47,18 @@ public class GraphQLProvider {
 
     private RuntimeWiring buildWiring() {
         RuntimeWiring.Builder rb = RuntimeWiring.newRuntimeWiring();
+        //build scalars
+        graphqlResolverFactory.getScalarSet().forEach(s -> {
+            rb.scalar(GraphQLScalarType.newScalar().name(s.getName()).description(s.getDescription()).coercing(s).build());
+        });
+        rb.scalar(ExtendedScalars.Date);
+        rb.scalar(ExtendedScalars.Object);
+        rb.scalar(ExtendedScalars.DateTime);
+        rb.scalar(ExtendedScalars.Json);
+        rb.scalar(ExtendedScalars.Url);
+        //build resolvers
         graphqlResolverFactory.getBuilders().forEach(b -> rb.type(b));
+
         return rb.build();
     }
 
