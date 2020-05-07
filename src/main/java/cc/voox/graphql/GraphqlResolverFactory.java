@@ -182,7 +182,12 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                                 }
                                 i++;
                             }
-                            return method.invoke(this.context.getBean(c), list.toArray(new Object[list.size()]));
+                            try {
+                                return method.invoke(this.context.getBean(c), list.toArray(new Object[list.size()]));
+                            } finally {
+                              logger.debug("clear context for graphql.");
+                              GraphQLContextUtil.clear();
+                            }
                         };
                         resolverClassMap.put(methodValue, c);
                         resolverMap.put(methodValue, df);

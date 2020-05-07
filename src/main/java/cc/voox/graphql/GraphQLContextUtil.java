@@ -22,4 +22,8 @@ public final class GraphQLContextUtil {
     public final static Map<String, Object> getArguments() {
         return get().getArguments();
     }
+
+    protected final static void clear() {
+        threadLocal.remove();
+    }
 }
