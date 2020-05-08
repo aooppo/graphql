@@ -26,4 +26,8 @@ public final class GraphQLContextUtil {
     protected final static void clear() {
         threadLocal.remove();
     }
+
+    public final static boolean isFromGraphQL() {
+        return get() != null;
+    }
 }
