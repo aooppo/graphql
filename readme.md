@@ -4,7 +4,7 @@
 <dependency>
     <groupId>cc.voox</groupId>
     <artifactId>graphql</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.2</version>
 </dependency>
 ```
 
