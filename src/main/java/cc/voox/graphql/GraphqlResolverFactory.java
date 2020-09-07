@@ -66,9 +66,13 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
     private Map<String, Map<String, DataFetcher>> wfResolvers = new HashMap<>();
     private Set<IScalar> scalarSet = new HashSet<>();
+    private Set<IDirective> directiveSet = new HashSet<>();
 
     protected Set<IScalar> getScalarSet() {
         return scalarSet;
+    }
+    protected Set<IDirective> getDirectiveSet() {
+        return directiveSet;
     }
 
     @PostConstruct
@@ -79,6 +83,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         ClassPathScanningCandidateComponentProvider cp = new ClassPathScanningCandidateComponentProvider(false);
         cp.addIncludeFilter(new AnnotationTypeFilter(Query.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IScalar.class));
+        cp.addIncludeFilter(new AssignableTypeFilter(IDirective.class));
 
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
            throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
@@ -108,6 +113,18 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         throw new GraphQLException("Cannot initial scalar"+ c);
                     }
                     scalarSet.add(iScalar);
+                    continue;
+                } else if (set.contains(IDirective.class) || c.isAssignableFrom(IDirective.class)) {
+                    IDirective directive;
+                    try {
+                        directive =(IDirective) c.newInstance();
+                    } catch (Exception e) {
+                        directive = (IDirective) this.context.getBean(c);
+                        if (directive == null) {
+                            throw new GraphQLException("Cannot initial directive"+ c);
+                        }
+                    }
+                    directiveSet.add(directive);
                     continue;
                 }
                 Query query = (Query)c.getAnnotation(Query.class);
@@ -210,6 +227,13 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                 scalarSet.forEach(s -> {
                     logger.info("GraphQL scalar @"+ s.getName() + " ===>" + s.getClass() );
                 });
+            }
+            if (directiveSet != null) {
+                directiveSet.forEach(directive -> {
+                    logger.info("GraphQL directive @"+ directive.getName() + " ===>" + directive.getClass() );
+                });
+            } else {
+                logger.info("GraphQL @directive is empty");
             }
             logger.info("init GraphQL end.");
         }

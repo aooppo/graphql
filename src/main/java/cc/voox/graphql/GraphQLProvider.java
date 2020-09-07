@@ -56,9 +56,15 @@ public class GraphQLProvider {
         rb.scalar(ExtendedScalars.DateTime);
         rb.scalar(ExtendedScalars.Json);
         rb.scalar(ExtendedScalars.Url);
+        //build directives
+        graphqlResolverFactory.getDirectiveSet().forEach(d-> {
+            rb.directive(d.getName(), d).build();
+        });
+
         //build resolvers
         graphqlResolverFactory.getBuilders().forEach(b -> rb.type(b));
 
+//        graphqlResolverFactory.getBuilders().forEach(b -> rb.fieldVisibility());
         return rb.build();
     }
 
