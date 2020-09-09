@@ -84,6 +84,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         }
         ClassPathScanningCandidateComponentProvider cp = new ClassPathScanningCandidateComponentProvider(false);
         cp.addIncludeFilter(new AnnotationTypeFilter(Query.class));
+        cp.addIncludeFilter(new AssignableTypeFilter(IGraphQL.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IScalar.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IDirective.class));
 
@@ -107,7 +108,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                 for(Class<?> inter: interfaces) {
                     set.add(inter);
                 }
-                if (set.contains(IScalar.class) || c.isAssignableFrom(IScalar.class)) {
+                if (set.contains(IScalar.class) || IScalar.class.isAssignableFrom(c)) {
                     IScalar iScalar;
                     try {
                         iScalar = (IScalar) c.newInstance();
@@ -116,7 +117,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                     }
                     scalarSet.add(iScalar);
                     continue;
-                } else if (set.contains(IDirective.class) || c.isAssignableFrom(IDirective.class)) {
+                } else if (set.contains(IDirective.class) || IDirective.class.isAssignableFrom(c)) {
                     IDirective directive;
                     try {
                         directive =(IDirective) c.newInstance();
@@ -129,8 +130,16 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                     directiveSet.add(directive);
                     continue;
                 }
-                Query query = (Query)c.getAnnotation(Query.class);
-                String value = query.value();
+                String queryValue = null;
+                if(c.isAnnotationPresent(Query.class)) {
+                    Query q = c.getAnnotation(Query.class);
+                    queryValue = q.value();
+                } else {
+                    if(set.contains(IGraphQL.class) || IGraphQL.class.isAssignableFrom(c)) {
+                        queryValue = c.getSimpleName();
+                    }
+                }
+                String value = queryValue;
                 if (StringUtils.isEmpty(value)) {
                     value = "Query";
                 }
@@ -148,8 +157,8 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         } else if (method.isAnnotationPresent(Query.class)) {
                             Query q = method.getAnnotation(Query.class);
                             methodQueryValue = StringUtils.isEmpty(q.value()) ? value : q.value();
-                        } else {
-                            methodQueryValue = c.getSimpleName();
+                        }  else {
+                            methodQueryValue = value;
                         }
 //                        final String resolverType = methodQueryValue;
                         Map<String, DataFetcher> resolverMap = resolvers.get(methodQueryValue);
@@ -173,7 +182,8 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             List<Object> list = clsTypes.length >0? getArguments(method): Collections.emptyList();
                             try {
                                 Object source = GraphQLContextUtil.get().getSource();
-                                return method.invoke(source != null? source: this.context.getBean(c), list.toArray(new Object[list.size()]));
+                                Object obj = IGraphQL.class.isAssignableFrom(c) && source != null? source: this.context.getBean(c);
+                                return method.invoke(obj, list.toArray(new Object[list.size()]));
                             } finally {
                               logger.debug("clear context for graphql.");
                               GraphQLContextUtil.clear();
