@@ -3,6 +3,8 @@ package cc.voox.graphql;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import graphql.GraphQL;
+import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentation;
+import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
@@ -35,7 +37,12 @@ public class GraphQLProvider {
         URL url = Resources.getResource(graphqlProperties.getSchema());
         String sdl = Resources.toString(url, Charsets.UTF_8);
         GraphQLSchema graphQLSchema = buildSchema(sdl);
-        this.graphQL = GraphQL.newGraphQL(graphQLSchema).build();
+        DataLoaderDispatcherInstrumentationOptions options = DataLoaderDispatcherInstrumentationOptions
+                .newOptions().includeStatistics(true);
+
+        DataLoaderDispatcherInstrumentation dispatcherInstrumentation
+                = new DataLoaderDispatcherInstrumentation(options);
+        this.graphQL = GraphQL.newGraphQL(graphQLSchema).instrumentation(dispatcherInstrumentation).build();
     }
 
     private GraphQLSchema buildSchema(String sdl) {

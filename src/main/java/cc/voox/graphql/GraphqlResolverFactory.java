@@ -12,6 +12,9 @@ import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.idl.TypeRuntimeWiring;
+import org.dataloader.BatchLoader;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -31,6 +34,7 @@ import javax.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,6 +43,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
@@ -65,7 +72,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
     @Autowired
     private ObjectMapper objectMapper;
-
+    private final Map<String, DataLoader<?, ?>> dataLoaders = new ConcurrentHashMap();
     private Map<String, Map<String, DataFetcher>> wfResolvers = new HashMap<>();
     private Set<IScalar> scalarSet = new HashSet<>();
     private Set<IDirective> directiveSet = new HashSet<>();
@@ -75,6 +82,10 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     }
     protected Set<IDirective> getDirectiveSet() {
         return directiveSet;
+    }
+
+    protected Map<String, DataLoader<?, ?>> getDataLoaders() {
+        return dataLoaders;
     }
 
     @PostConstruct
@@ -87,6 +98,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         cp.addIncludeFilter(new AssignableTypeFilter(IGraphQL.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IScalar.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IDirective.class));
+        cp.addIncludeFilter(new AssignableTypeFilter(IDataLoader.class));
 
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
            throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
@@ -128,6 +140,15 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         }
                     }
                     directiveSet.add(directive);
+                    continue;
+                } else if (set.contains(IDataLoader.class) || IDataLoader.class.isAssignableFrom(c)) {
+                    IDataLoader dataLoader;
+                    try {
+                        dataLoader = (IDataLoader) this.context.getBean(c);
+                    } catch (Exception e) {
+                        throw new GraphQLException("Cannot initial dataLoader"+ c);
+                    }
+                    dataLoaders.put(dataLoader.key(), dataLoader.get());
                     continue;
                 }
                 String queryValue = null;
@@ -176,8 +197,30 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             methodValue = method.getName();
                         }
 
+//                        //
+//                        // a batch loader function that will be called with N or more keys for batch loading
+//                        // This can be a singleton object since it's stateless
+//                        //
+//                        BatchLoader<String, Object> characterBatchLoader = keys -> {
+//                            //
+//                            // we use supplyAsync() of values here for maximum parellisation
+//                            //TODO
+//                            return CompletableFuture.supplyAsync(() -> {
+//                                ArrayList<Object> objects = new ArrayList<>();
+//                                objects.add(keys);
+//                                System.out.println("mock ~ exec sql query with key"+ keys.toString());
+//                                return objects;});
+//                        };
+//
+//                        DataLoader<String, Object> characterDataLoader = DataLoader.newDataLoader(characterBatchLoader);
+//                        DataLoaderRegistry registry = new DataLoaderRegistry();
+//                        registry.register("character", characterDataLoader);
+
+
                         DataFetcher df = dataFetchingEnvironment -> {
                             GraphQLContextUtil.add(dataFetchingEnvironment);
+//                            DataLoader<Object, Object> characterLoader = dataFetchingEnvironment.getDataLoader("character");
+//                            CompletableFuture<Object> load = characterLoader.load("c");
                             Class<?>[] clsTypes = method.getParameterTypes();
                             List<Object> list = clsTypes.length >0? getArguments(method): Collections.emptyList();
                             try {
