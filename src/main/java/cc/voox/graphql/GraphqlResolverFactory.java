@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
+import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.idl.TypeRuntimeWiring;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ import javax.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -138,10 +140,18 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                     method.setAccessible(true);
                     if (method.isAnnotationPresent(QueryMethod.class)) {
                         String methodQueryValue = value;
-                        if (method.isAnnotationPresent(Query.class)) {
+                        QueryMethod methodAnnotation = method.getAnnotation(QueryMethod.class);
+                        String type = methodAnnotation.type();
+                        String methodValue = methodAnnotation.value();
+                        if (!StringUtils.isEmpty(type)) {
+                            methodQueryValue = type;
+                        } else if (method.isAnnotationPresent(Query.class)) {
                             Query q = method.getAnnotation(Query.class);
                             methodQueryValue = StringUtils.isEmpty(q.value()) ? value : q.value();
+                        } else {
+                            methodQueryValue = c.getSimpleName();
                         }
+//                        final String resolverType = methodQueryValue;
                         Map<String, DataFetcher> resolverMap = resolvers.get(methodQueryValue);
                         Map<String, Class<?>> resolverClassMap = originClassResolvers.get(methodQueryValue);
 
@@ -153,54 +163,17 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         }
 
 
-                        QueryMethod qm = method.getAnnotation(QueryMethod.class);
-                        String methodValue = qm.value();
                         if (StringUtils.isEmpty(methodValue)) {
                             methodValue = method.getName();
                         }
-                        Annotation[][] ats = method.getParameterAnnotations();
-                        Class<?>[] clsTypes = method.getParameterTypes();
+
                         DataFetcher df = dataFetchingEnvironment -> {
                             GraphQLContextUtil.add(dataFetchingEnvironment);
-                            List<Object> list = new ArrayList<>();
-                            int i = 0;
-                            for (Annotation[] as: ats) {
-
-                                for (Annotation a : as) {
-                                    QueryField queryField = AnnotationUtils.getAnnotation(a, QueryField.class);
-                                    if (queryField != null) {
-                                        String qfv = queryField.value();
-                                        boolean fromSource = queryField.source();
-                                        if (fromSource) {
-                                            Object o = dataFetchingEnvironment.getSource();
-                                            if (o == null) {
-                                                list.add(null);
-                                                break;
-                                            }
-                                            Object val = null;
-                                            if (o instanceof Map) {
-                                                Map mo = (Map) o;
-                                                val = mo.get(qfv);
-                                            } else {
-                                                o = AOPUtil.getTarget(o);
-                                                val = BeanUtil.getFieldValue(o, qfv);
-                                            }
-                                            list.add(val);
-                                            break;
-                                        } else {
-
-                                            Object v = dataFetchingEnvironment.getArgument(qfv);
-                                            Class<?> clz = clsTypes[i];
-                                            v = objectMapper.convertValue(v, clz);
-                                            list.add(v);
-                                            break;
-                                        }
-                                    }
-                                }
-                                i++;
-                            }
+                            Class<?>[] clsTypes = method.getParameterTypes();
+                            List<Object> list = clsTypes.length >0? getArguments(method): Collections.emptyList();
                             try {
-                                return method.invoke(this.context.getBean(c), list.toArray(new Object[list.size()]));
+                                Object source = GraphQLContextUtil.get().getSource();
+                                return method.invoke(source != null? source: this.context.getBean(c), list.toArray(new Object[list.size()]));
                             } finally {
                               logger.debug("clear context for graphql.");
                               GraphQLContextUtil.clear();
@@ -237,6 +210,56 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
             }
             logger.info("init GraphQL end.");
         }
+    }
+
+    private List<Object> getArguments(Method method) throws Exception {
+        if (method == null) {
+            throw new RuntimeException("Method is null.");
+        }
+        List<Object> list = new ArrayList<>();
+        Annotation[][] ats = method.getParameterAnnotations();
+        Class<?>[] clsTypes = method.getParameterTypes();
+        DataFetchingEnvironment dataFetchingEnvironment = GraphQLContextUtil.get();
+        if (dataFetchingEnvironment == null) {
+           throw new RuntimeException("Current thread doesn't have resolver context.");
+        }
+        int i = 0;
+        for (Annotation[] as: ats) {
+
+            for (Annotation a : as) {
+                QueryField queryField = AnnotationUtils.getAnnotation(a, QueryField.class);
+                if (queryField != null) {
+                    String qfv = queryField.value();
+                    boolean fromSource = queryField.source();
+                    if (fromSource) {
+                        Object o = dataFetchingEnvironment.getSource();
+                        if (o == null) {
+                            list.add(null);
+                            break;
+                        }
+                        Object val = null;
+                        if (o instanceof Map) {
+                            Map mo = (Map) o;
+                            val = mo.get(qfv);
+                        } else {
+                            o = AOPUtil.getTarget(o);
+                            val = BeanUtil.getFieldValue(o, qfv);
+                        }
+                        list.add(val);
+                        break;
+                    } else {
+
+                        Object v = dataFetchingEnvironment.getArgument(qfv);
+                        Class<?> clz = clsTypes[i];
+                        v = objectMapper.convertValue(v, clz);
+                        list.add(v);
+                        break;
+                    }
+                }
+            }
+            i++;
+        }
+        return list;
     }
 
     public List<TypeRuntimeWiring.Builder> getBuilders() {

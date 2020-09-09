@@ -8,6 +8,7 @@ import graphql.spring.web.servlet.GraphQLInvocation;
 import graphql.spring.web.servlet.GraphQLInvocationData;
 import graphql.spring.web.servlet.components.GraphQLRequestBody;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -32,7 +33,7 @@ public class GraphQLConfigController {
 
     public GraphQLConfigController() {
     }
-
+    @CrossOrigin
     @RequestMapping(
             value = "graphql",
             method = {RequestMethod.POST},
@@ -48,7 +49,7 @@ public class GraphQLConfigController {
         CompletableFuture<ExecutionResult> executionResult = this.graphQLInvocation.invoke(new GraphQLInvocationData(query, body.getOperationName(), body.getVariables()), webRequest);
         return this.executionResultHandler.handleExecutionResult(executionResult);
     }
-
+    @CrossOrigin
     @RequestMapping(
             value = "graphql",
             method = {RequestMethod.GET},
