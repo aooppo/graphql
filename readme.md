@@ -75,6 +75,6 @@ class Lower implements IDirective {
 ```
 ### define dataloader
 ```java 
-class Lower implements IDataloader {
+class BookDatalodaer implements IDataloader {
 }
 ```
