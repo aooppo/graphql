@@ -5,7 +5,7 @@
 <dependency>
     <groupId>cc.voox</groupId>
     <artifactId>graphql</artifactId>
-    <version>0.8.0</version>
+    <version>0.8.1</version>
 </dependency>
 ```
 
@@ -64,7 +64,17 @@ public class TestService {
 ``` 
 
 ### define scalars
-implements IScalar interface
+```java 
+class Currency implements IScalar {
+} 
+```
 ### define directive
-implements IDirective interface
-
+```java 
+class Lower implements IDirective {
+}
+```
+### define dataloader
+```java 
+class Lower implements IDataloader {
+}
+```
