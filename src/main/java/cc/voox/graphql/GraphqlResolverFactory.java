@@ -148,7 +148,8 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                     } catch (Exception e) {
                         throw new GraphQLException("Cannot initial dataLoader"+ c);
                     }
-                    dataLoaders.put(dataLoader.key(), dataLoader.get());
+
+                    dataLoaders.put(c.getSimpleName(), dataLoader.useTryMode()? dataLoader.getTry() : dataLoader.get());
                     continue;
                 }
                 String queryValue = null;
