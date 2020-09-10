@@ -11,7 +11,7 @@ cache:
 # - chmod +x gradlew
 
 script:
-  - mvn clean package -DskipTests=true
+  - mvn clean package -DskipTests=true -Dgpg.skip=true
 
 notifications:
   email: false
