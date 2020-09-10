@@ -27,22 +27,6 @@ public class EnhanceGraphQLInvocation extends DefaultGraphQLInvocation {
 
     @Override
     public CompletableFuture<ExecutionResult> invoke(GraphQLInvocationData invocationData, WebRequest webRequest) {
-        //
-        // a batch loader function that will be called with N or more keys for batch loading
-        // This can be a singleton object since it's stateless
-        //
-//        BatchLoader<String, Object> characterBatchLoader = keys -> {
-//            //
-//            // we use supplyAsync() of values here for maximum parellisation
-//            //TODO
-//            return CompletableFuture.supplyAsync(() -> {
-//                ArrayList<Object> objects = new ArrayList<>();
-//                objects.add(keys);
-//                System.out.println("mock ~ exec sql query with key"+ keys.toString());
-//                return objects;});
-//        };
-
-//        DataLoader<String, Object> characterDataLoader = DataLoader.newDataLoader(characterBatchLoader);
         DataLoaderRegistry registry = new DataLoaderRegistry();
         graphqlResolverFactory.getDataLoaders().forEach(registry::register);
 

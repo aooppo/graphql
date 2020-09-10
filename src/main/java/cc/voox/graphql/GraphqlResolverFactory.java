@@ -197,30 +197,9 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             methodValue = method.getName();
                         }
 
-//                        //
-//                        // a batch loader function that will be called with N or more keys for batch loading
-//                        // This can be a singleton object since it's stateless
-//                        //
-//                        BatchLoader<String, Object> characterBatchLoader = keys -> {
-//                            //
-//                            // we use supplyAsync() of values here for maximum parellisation
-//                            //TODO
-//                            return CompletableFuture.supplyAsync(() -> {
-//                                ArrayList<Object> objects = new ArrayList<>();
-//                                objects.add(keys);
-//                                System.out.println("mock ~ exec sql query with key"+ keys.toString());
-//                                return objects;});
-//                        };
-//
-//                        DataLoader<String, Object> characterDataLoader = DataLoader.newDataLoader(characterBatchLoader);
-//                        DataLoaderRegistry registry = new DataLoaderRegistry();
-//                        registry.register("character", characterDataLoader);
-
-
                         DataFetcher df = dataFetchingEnvironment -> {
                             GraphQLContextUtil.add(dataFetchingEnvironment);
-//                            DataLoader<Object, Object> characterLoader = dataFetchingEnvironment.getDataLoader("character");
-//                            CompletableFuture<Object> load = characterLoader.load("c");
+
                             Class<?>[] clsTypes = method.getParameterTypes();
                             List<Object> list = clsTypes.length >0? getArguments(method): Collections.emptyList();
                             try {
@@ -257,6 +236,13 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
             if (directiveSet != null) {
                 directiveSet.forEach(directive -> {
                     logger.info("GraphQL directive @"+ directive.getName() + " ===>" + directive.getClass() );
+                });
+            } else {
+                logger.info("GraphQL @directive is empty");
+            }
+            if (dataLoaders != null) {
+                dataLoaders.forEach((key, dl) -> {
+                    logger.info("GraphQL dataloader @"+ key + " ===>" + dl.getClass() );
                 });
             } else {
                 logger.info("GraphQL @directive is empty");

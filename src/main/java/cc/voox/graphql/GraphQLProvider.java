@@ -3,6 +3,7 @@ package cc.voox.graphql;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import graphql.GraphQL;
+import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentation;
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions;
 import graphql.scalars.ExtendedScalars;
@@ -38,11 +39,12 @@ public class GraphQLProvider {
         String sdl = Resources.toString(url, Charsets.UTF_8);
         GraphQLSchema graphQLSchema = buildSchema(sdl);
         DataLoaderDispatcherInstrumentationOptions options = DataLoaderDispatcherInstrumentationOptions
-                .newOptions().includeStatistics(true);
+                .newOptions().includeStatistics(graphqlProperties.isOpenStatistics());
 
         DataLoaderDispatcherInstrumentation dispatcherInstrumentation
                 = new DataLoaderDispatcherInstrumentation(options);
-        this.graphQL = GraphQL.newGraphQL(graphQLSchema).instrumentation(dispatcherInstrumentation).build();
+        MaxQueryDepthInstrumentation maxQueryDepthInstrumentation = new MaxQueryDepthInstrumentation(graphqlProperties.getMaxQueryDepth());
+        this.graphQL = GraphQL.newGraphQL(graphQLSchema).instrumentation(dispatcherInstrumentation).instrumentation(maxQueryDepthInstrumentation).build();
     }
 
     private GraphQLSchema buildSchema(String sdl) {

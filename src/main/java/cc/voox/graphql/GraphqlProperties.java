@@ -11,6 +11,24 @@ public class GraphqlProperties {
     private Static STATIC = new Static();
     private Cdn cdn = new Cdn();
     private boolean log = false;
+    private boolean openStatistics = false;
+    private int maxQueryDepth = 100;
+
+    public int getMaxQueryDepth() {
+        return maxQueryDepth;
+    }
+
+    public void setMaxQueryDepth(int maxQueryDepth) {
+        this.maxQueryDepth = maxQueryDepth;
+    }
+
+    public boolean isOpenStatistics() {
+        return openStatistics;
+    }
+
+    public void setOpenStatistics(boolean openStatistics) {
+        this.openStatistics = openStatistics;
+    }
 
     public Endpoint getEndpoint() {
         return endpoint;
