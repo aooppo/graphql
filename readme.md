@@ -1,4 +1,5 @@
 ![Travis (.org)](https://img.shields.io/travis/aooppo/graphql)
+![example:](https://github.com/aooppo/graphql-java-example)
 # Install
 - add dependencies into pom.xml
 ``` xml
