@@ -271,6 +271,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                 if (queryField != null) {
                     String qfv = queryField.value();
                     boolean fromSource = queryField.source();
+                    boolean root = queryField.root();
                     if (fromSource) {
                         Object o = dataFetchingEnvironment.getSource();
                         if (o == null) {
@@ -283,9 +284,15 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             val = mo.get(qfv);
                         } else {
                             o = AOPUtil.getTarget(o);
+                            /**
+                             * get parent sub field
+                             */
                             val = BeanUtil.getFieldValue(o, qfv);
                         }
                         list.add(val);
+                        break;
+                    } else if(root) {
+                        list.add(dataFetchingEnvironment.getSource());
                         break;
                     } else {
 
