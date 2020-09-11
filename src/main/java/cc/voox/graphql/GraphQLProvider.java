@@ -17,13 +17,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URL;
 
 @Component
-@ComponentScan("graphql.spring.web.servlet")
+@ComponentScan(value = "graphql.spring.web.servlet", excludeFilters = @ComponentScan.Filter(classes = {RestController.class}))
 public class GraphQLProvider {
 
     @Autowired

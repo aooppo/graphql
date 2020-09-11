@@ -2,8 +2,8 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 <modelVersion>4.0.0</modelVersion>
 <groupId>cc.voox</groupId>
-<artifactId>graphql</artifactId>
-<version>0.8.1</version>
+<artifactId>graphql-spring-boot-starter</artifactId>
+<version>1.0.0</version>
 <packaging>jar</packaging>
 <url>https://github.com/aooppo/graphql</url>
 <description>graphql tool for java </description>
@@ -34,6 +34,12 @@
 </developers>
 
 <dependencies>
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-configuration-processor</artifactId>
+        <optional>true</optional>
+        <version>2.1.14.RELEASE</version>
+    </dependency>
     <dependency>
         <groupId>com.graphql-java</groupId>
         <artifactId>graphql-java-extended-scalars</artifactId>
@@ -74,7 +80,11 @@
         <artifactId>commons-lang3</artifactId>
         <version>3.5</version>
     </dependency>
-
+    <dependency>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-autoconfigure</artifactId>
+        <version>2.1.14.RELEASE</version>
+    </dependency>
 </dependencies>
 
 <profiles>

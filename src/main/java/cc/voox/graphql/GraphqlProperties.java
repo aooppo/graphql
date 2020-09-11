@@ -1,9 +1,12 @@
 package cc.voox.graphql;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.ClassUtils;
 
+@ConfigurationProperties(prefix = "graphql")
 public class GraphqlProperties {
     private String schema = "schema.graphql";
-    private String scanPath;
+    private String scanPath = ClassUtils.getPackageName(getClass());
     private String pageTitle = "GraphQL UI";
     private String mapping = "/app/altair";
     private boolean enabled = true;
