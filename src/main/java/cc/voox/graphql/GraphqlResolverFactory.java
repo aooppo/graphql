@@ -61,7 +61,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     public ObjectMapper objectMapper() {
         ObjectMapper responseMapper = new ObjectMapper();
         responseMapper.addMixIn(Object.class, JsonIgnore.class);
-        responseMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,false);
+        responseMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return responseMapper;
     }
 
@@ -80,6 +80,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     protected Set<IScalar> getScalarSet() {
         return scalarSet;
     }
+
     protected Set<IDirective> getDirectiveSet() {
         return directiveSet;
     }
@@ -90,7 +91,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
     @PostConstruct
     void init() {
-        if(graphqlProperties.isLog()) {
+        if (graphqlProperties.isLog()) {
             logger.info("init GraphQL start");
         }
         ClassPathScanningCandidateComponentProvider cp = new ClassPathScanningCandidateComponentProvider(false);
@@ -102,7 +103,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         cp.addIncludeFilter(new AssignableTypeFilter(GraphQLInterceptor.class));
 
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
-           throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
+            throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
         }
         Set<BeanDefinition> bd = cp.findCandidateComponents(graphqlProperties.getScanPath());
         ClassLoader loader = GraphqlResolverFactory.class.getClassLoader();
@@ -110,64 +111,80 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         Map<String, Map<String, Class<?>>> originClassResolvers = new HashMap();
         Iterator var5 = bd.iterator();
 
-        while(var5.hasNext()) {
-            BeanDefinition b = (BeanDefinition)var5.next();
+        while (var5.hasNext()) {
+            BeanDefinition b = (BeanDefinition) var5.next();
             String beanName = b.getBeanClassName();
 
             try {
                 Class<?> c = loader.loadClass(beanName);
                 Class<?>[] interfaces = c.getInterfaces();
                 Set<Class<?>> set = new HashSet<>();
-                for(Class<?> inter: interfaces) {
+                for (Class<?> inter : interfaces) {
                     set.add(inter);
                 }
                 if (set.contains(IScalar.class) || IScalar.class.isAssignableFrom(c)) {
-                    IScalar iScalar;
+                    IScalar iScalar = null;
                     try {
-                        iScalar = (IScalar) c.newInstance();
                     } catch (Exception e) {
-                        throw new GraphQLException("Cannot initial scalar"+ c);
+                        try {
+                            iScalar = (IScalar) c.newInstance();
+                        } catch (Exception ex) {
+                        }
+                        if (iScalar == null) {
+
+                            throw new GraphQLException("Cannot initial scalar" + c);
+                        }
                     }
                     scalarSet.add(iScalar);
                     continue;
                 } else if (set.contains(IDirective.class) || IDirective.class.isAssignableFrom(c)) {
-                    IDirective directive;
+                    IDirective directive = null;
                     try {
-                        directive =(IDirective) c.newInstance();
-                    } catch (Exception e) {
                         directive = (IDirective) this.context.getBean(c);
+                    } catch (Exception e) {
+                        try {
+                            directive = (IDirective) c.newInstance();
+                        } catch (Exception illegalAccessException) {
+                        }
                         if (directive == null) {
-                            throw new GraphQLException("Cannot initial directive"+ c);
+                            throw new GraphQLException("Cannot initial directive" + c);
                         }
                     }
                     directiveSet.add(directive);
                     continue;
                 } else if (set.contains(IDataLoader.class) || IDataLoader.class.isAssignableFrom(c)) {
-                    IDataLoader dataLoader;
+                    IDataLoader dataLoader = null;
                     try {
                         dataLoader = (IDataLoader) this.context.getBean(c);
                     } catch (Exception e) {
-                        throw new GraphQLException("Cannot initial dataLoader"+ c);
+                        try {
+                            dataLoader = (IDataLoader) c.newInstance();
+                        } catch (Exception illegalAccessException) {
+                        }
+                        if (dataLoader == null) {
+
+                            throw new GraphQLException("Cannot initial dataLoader" + c);
+                        }
                     }
 
-                    dataLoaders.put(c.getSimpleName(), dataLoader.useTryMode()? dataLoader.getTry() : dataLoader.get());
+                    dataLoaders.put(c.getSimpleName(), dataLoader.useTryMode() ? dataLoader.getTry() : dataLoader.get());
                     continue;
-                }else if (set.contains(GraphQLInterceptor.class) || GraphQLInterceptor.class.isAssignableFrom(c)) {
+                } else if (set.contains(GraphQLInterceptor.class) || GraphQLInterceptor.class.isAssignableFrom(c)) {
 
                     try {
                         GraphQLInterceptor interceptor = (GraphQLInterceptor) this.context.getBean(c);
                         this.interceptors.add(interceptor);
                     } catch (Exception e) {
-                        throw new GraphQLException("Cannot initial interceptor"+ c);
+                        throw new GraphQLException("Cannot initial interceptor" + c);
                     }
                     continue;
                 }
                 String queryValue = null;
-                if(c.isAnnotationPresent(Query.class)) {
+                if (c.isAnnotationPresent(Query.class)) {
                     Query q = c.getAnnotation(Query.class);
                     queryValue = q.value();
                 } else {
-                    if(set.contains(IGraphQL.class) || IGraphQL.class.isAssignableFrom(c)) {
+                    if (set.contains(IGraphQL.class) || IGraphQL.class.isAssignableFrom(c)) {
                         queryValue = c.getSimpleName();
                     }
                 }
@@ -177,7 +194,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                 }
 
                 Method[] methods = c.getDeclaredMethods();
-                for(Method method: methods) {
+                for (Method method : methods) {
                     method.setAccessible(true);
                     if (method.isAnnotationPresent(QueryMethod.class)) {
                         String methodQueryValue = value;
@@ -189,7 +206,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         } else if (method.isAnnotationPresent(Query.class)) {
                             Query q = method.getAnnotation(Query.class);
                             methodQueryValue = StringUtils.isEmpty(q.value()) ? value : q.value();
-                        }  else {
+                        } else {
                             methodQueryValue = value;
                         }
 //                        final String resolverType = methodQueryValue;
@@ -200,7 +217,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             resolverMap = new LinkedHashMap<>();
                         }
                         if (resolverClassMap == null) {
-                           resolverClassMap = new LinkedHashMap<>();
+                            resolverClassMap = new LinkedHashMap<>();
                         }
 
 
@@ -212,14 +229,14 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             GraphQLContextUtil.add(dataFetchingEnvironment);
 
                             Class<?>[] clsTypes = method.getParameterTypes();
-                            List<Object> list = clsTypes.length >0? getArguments(method): Collections.emptyList();
+                            List<Object> list = clsTypes.length > 0 ? getArguments(method) : Collections.emptyList();
                             try {
                                 Object source = GraphQLContextUtil.get().getSource();
-                                Object obj = IGraphQL.class.isAssignableFrom(c) && source != null? source: this.context.getBean(c);
+                                Object obj = IGraphQL.class.isAssignableFrom(c) && source != null ? source : this.context.getBean(c);
                                 return method.invoke(obj, list.toArray(new Object[list.size()]));
                             } finally {
-                              logger.debug("clear context for graphql.");
-                              GraphQLContextUtil.clear();
+                                logger.debug("clear context for graphql.");
+                                GraphQLContextUtil.clear();
                             }
                         };
                         resolverClassMap.put(methodValue, c);
@@ -235,25 +252,25 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         this.wfResolvers = resolvers;
         if (graphqlProperties.isLog()) {
             if (originClassResolvers != null) {
-                originClassResolvers.forEach((k,v) -> {
-                    logger.info("GraphQL resolvers @"+ k + " ===>" + v );
+                originClassResolvers.forEach((k, v) -> {
+                    logger.info("GraphQL resolvers @" + k + " ===>" + v);
                 });
             }
             if (scalarSet != null) {
                 scalarSet.forEach(s -> {
-                    logger.info("GraphQL scalar @"+ s.getName() + " ===>" + s.getClass() );
+                    logger.info("GraphQL scalar @" + s.getName() + " ===>" + s.getClass());
                 });
             }
             if (directiveSet != null) {
                 directiveSet.forEach(directive -> {
-                    logger.info("GraphQL directive @"+ directive.getName() + " ===>" + directive.getClass() );
+                    logger.info("GraphQL directive @" + directive.getName() + " ===>" + directive.getClass());
                 });
             } else {
                 logger.info("GraphQL @directive is empty");
             }
             if (dataLoaders != null) {
                 dataLoaders.forEach((key, dl) -> {
-                    logger.info("GraphQL dataloader @"+ key + " ===>" + dl.getClass() );
+                    logger.info("GraphQL dataloader @" + key + " ===>" + dl.getClass());
                 });
             } else {
                 logger.info("GraphQL @directive is empty");
@@ -271,10 +288,10 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         Class<?>[] clsTypes = method.getParameterTypes();
         DataFetchingEnvironment dataFetchingEnvironment = GraphQLContextUtil.get();
         if (dataFetchingEnvironment == null) {
-           throw new RuntimeException("Current thread doesn't have resolver context.");
+            throw new RuntimeException("Current thread doesn't have resolver context.");
         }
         int i = 0;
-        for (Annotation[] as: ats) {
+        for (Annotation[] as : ats) {
 
             for (Annotation a : as) {
                 QueryField queryField = AnnotationUtils.getAnnotation(a, QueryField.class);
@@ -301,7 +318,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         }
                         list.add(val);
                         break;
-                    } else if(root) {
+                    } else if (root) {
                         list.add(dataFetchingEnvironment.getSource());
                         break;
                     } else {
@@ -321,7 +338,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
 
     public List<TypeRuntimeWiring.Builder> getBuilders() {
         List<TypeRuntimeWiring.Builder> bs = new ArrayList<>();
-        for(Map.Entry<String, Map<String, DataFetcher>> rs: this.wfResolvers.entrySet()) {
+        for (Map.Entry<String, Map<String, DataFetcher>> rs : this.wfResolvers.entrySet()) {
             TypeRuntimeWiring.Builder tb = newTypeWiring(rs.getKey());
             tb.dataFetchers(rs.getValue());
             bs.add(tb);
