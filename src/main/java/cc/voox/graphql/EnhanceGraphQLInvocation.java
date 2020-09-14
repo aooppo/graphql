@@ -3,6 +3,7 @@ package cc.voox.graphql;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.GraphQLContext;
 import graphql.spring.web.servlet.GraphQLInvocationData;
 import graphql.spring.web.servlet.components.DefaultGraphQLInvocation;
 import org.dataloader.BatchLoader;
@@ -32,6 +33,7 @@ public class EnhanceGraphQLInvocation extends DefaultGraphQLInvocation {
 
         ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(invocationData.getQuery()).operationName(invocationData.getOperationName()).variables(invocationData.getVariables())
                 .dataLoaderRegistry(registry)
+                .context(webRequest)
                 .build();
         return this.graphQL.executeAsync(executionInput);
     }

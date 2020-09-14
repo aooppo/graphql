@@ -4,6 +4,8 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 import graphql.GraphQL;
 import graphql.analysis.MaxQueryDepthInstrumentation;
+import graphql.execution.instrumentation.ChainedInstrumentation;
+import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentation;
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions;
 import graphql.scalars.ExtendedScalars;
@@ -21,6 +23,11 @@ import org.springframework.stereotype.Component;
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @ComponentScan("graphql.spring.web.servlet")
@@ -43,8 +50,17 @@ public class GraphQLProvider {
 
         DataLoaderDispatcherInstrumentation dispatcherInstrumentation
                 = new DataLoaderDispatcherInstrumentation(options);
+        Set<GraphQLInterceptor> interceptors = graphqlResolverFactory.getInterceptors();
+        List<GraphQLInterceptor> graphQLInterceptors = new ArrayList<>(interceptors);
+        List<GraphQLInterceptor> collect = graphQLInterceptors.stream().sorted(Comparator.comparingInt(GraphQLInterceptor::getOrder)).collect(Collectors.toList());
         MaxQueryDepthInstrumentation maxQueryDepthInstrumentation = new MaxQueryDepthInstrumentation(graphqlProperties.getMaxQueryDepth());
-        this.graphQL = GraphQL.newGraphQL(graphQLSchema).instrumentation(dispatcherInstrumentation).instrumentation(maxQueryDepthInstrumentation).build();
+//        MaxQueryComplexityInstrumentation maxQueryComplexityInstrumentation = new MaxQueryComplexityInstrumentation(100);
+        List<Instrumentation> chainedList = new ArrayList<>();
+        chainedList.add(dispatcherInstrumentation);
+        chainedList.add(maxQueryDepthInstrumentation);
+        chainedList.addAll(collect);
+        ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(chainedList);
+        this.graphQL = GraphQL.newGraphQL(graphQLSchema).instrumentation(chainedInstrumentation).build();
     }
 
     private GraphQLSchema buildSchema(String sdl) {

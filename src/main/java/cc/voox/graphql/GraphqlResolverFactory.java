@@ -12,9 +12,7 @@ import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.idl.TypeRuntimeWiring;
-import org.dataloader.BatchLoader;
 import org.dataloader.DataLoader;
-import org.dataloader.DataLoaderRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
@@ -34,7 +32,6 @@ import javax.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -43,8 +40,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -76,6 +71,11 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     private Map<String, Map<String, DataFetcher>> wfResolvers = new HashMap<>();
     private Set<IScalar> scalarSet = new HashSet<>();
     private Set<IDirective> directiveSet = new HashSet<>();
+    private Set<GraphQLInterceptor> interceptors = new HashSet<>();
+
+    public Set<GraphQLInterceptor> getInterceptors() {
+        return interceptors;
+    }
 
     protected Set<IScalar> getScalarSet() {
         return scalarSet;
@@ -99,6 +99,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         cp.addIncludeFilter(new AssignableTypeFilter(IScalar.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IDirective.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IDataLoader.class));
+        cp.addIncludeFilter(new AssignableTypeFilter(GraphQLInterceptor.class));
 
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
            throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
@@ -150,6 +151,15 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                     }
 
                     dataLoaders.put(c.getSimpleName(), dataLoader.useTryMode()? dataLoader.getTry() : dataLoader.get());
+                    continue;
+                }else if (set.contains(GraphQLInterceptor.class) || GraphQLInterceptor.class.isAssignableFrom(c)) {
+
+                    try {
+                        GraphQLInterceptor interceptor = (GraphQLInterceptor) this.context.getBean(c);
+                        this.interceptors.add(interceptor);
+                    } catch (Exception e) {
+                        throw new GraphQLException("Cannot initial interceptor"+ c);
+                    }
                     continue;
                 }
                 String queryValue = null;
