@@ -125,6 +125,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                 if (set.contains(IScalar.class) || IScalar.class.isAssignableFrom(c)) {
                     IScalar iScalar = null;
                     try {
+                        iScalar = (IScalar) context.getBean(c);
                     } catch (Exception e) {
                         try {
                             iScalar = (IScalar) c.newInstance();
