@@ -20,4 +20,7 @@ public @interface QueryMethod {
      * @return
      */
     String type() default "";
+
+    boolean required() default false;
+
 }

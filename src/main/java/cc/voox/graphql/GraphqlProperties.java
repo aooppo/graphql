@@ -16,6 +16,15 @@ public class GraphqlProperties {
     private boolean log = false;
     private boolean openStatistics = false;
     private int maxQueryDepth = 100;
+    private boolean enableCodeMode = false;
+
+    public boolean isEnableCodeMode() {
+        return enableCodeMode;
+    }
+
+    public void setEnableCodeMode(boolean enableCodeMode) {
+        this.enableCodeMode = enableCodeMode;
+    }
 
     public int getMaxQueryDepth() {
         return maxQueryDepth;

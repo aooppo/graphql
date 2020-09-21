@@ -1,16 +1,26 @@
 package cc.voox.graphql;
 
+import cc.voox.graphql.annotation.ObjectType;
 import cc.voox.graphql.annotation.Query;
 import cc.voox.graphql.annotation.QueryField;
 import cc.voox.graphql.annotation.QueryMethod;
+import cc.voox.graphql.metadata.TypeField;
 import cc.voox.graphql.utils.AOPUtil;
 import cc.voox.graphql.utils.BeanUtil;
+import cc.voox.graphql.utils.GraphQLTypeUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import graphql.schema.GraphQLArgument;
+import graphql.schema.GraphQLList;
+import graphql.schema.GraphQLNonNull;
+import graphql.schema.GraphQLOutputType;
+import graphql.schema.GraphQLScalarType;
+import graphql.schema.GraphQLType;
+import graphql.schema.GraphQLTypeReference;
 import graphql.schema.idl.TypeRuntimeWiring;
 import org.dataloader.DataLoader;
 import org.slf4j.Logger;
@@ -31,17 +41,21 @@ import org.springframework.util.StringUtils;
 import javax.annotation.PostConstruct;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static cc.voox.graphql.utils.GraphQLTypeUtils.isGraphQLPrimitive;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
 
 @Component
@@ -69,9 +83,11 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     private ObjectMapper objectMapper;
     private final Map<String, DataLoader<?, ?>> dataLoaders = new ConcurrentHashMap();
     private Map<String, Map<String, DataFetcher>> wfResolvers = new HashMap<>();
+    private Map<String, Set<TypeField>> typeFieldMap = new HashMap<>();
     private Set<IScalar> scalarSet = new HashSet<>();
     private Set<IDirective> directiveSet = new HashSet<>();
     private Set<GraphQLInterceptor> interceptors = new HashSet<>();
+    private List<Class<?>> typeList = new ArrayList<>();
 
     public Set<GraphQLInterceptor> getInterceptors() {
         return interceptors;
@@ -89,6 +105,10 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         return dataLoaders;
     }
 
+    public List<Class<?>> getTypeList() {
+        return typeList;
+    }
+
     @PostConstruct
     void init() {
         if (graphqlProperties.isLog()) {
@@ -101,7 +121,9 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         cp.addIncludeFilter(new AssignableTypeFilter(IDirective.class));
         cp.addIncludeFilter(new AssignableTypeFilter(IDataLoader.class));
         cp.addIncludeFilter(new AssignableTypeFilter(GraphQLInterceptor.class));
-
+        if (graphqlProperties.isEnableCodeMode()) {
+            cp.addIncludeFilter(new AnnotationTypeFilter(ObjectType.class));
+        }
         if (StringUtils.isEmpty(graphqlProperties.getScanPath())) {
             throw new GraphQLException("Scan path is empty. please set scan path in GraphqlProperties bean.");
         }
@@ -179,6 +201,9 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         throw new GraphQLException("Cannot initial interceptor" + c);
                     }
                     continue;
+                } else if(c.isAnnotationPresent(ObjectType.class)) {
+                    typeList.add(c);
+                    continue;
                 }
                 String queryValue = null;
                 if (c.isAnnotationPresent(Query.class)) {
@@ -226,6 +251,54 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             methodValue = method.getName();
                         }
 
+                        TypeField typeField = new TypeField();
+                        typeField.setValue(methodValue);
+                        typeField.setType(getFieldType(method));
+                        Set<TypeField> typeFields = typeFieldMap.get(methodQueryValue);
+                        if(typeFields == null) {
+                            typeFields = new HashSet<>();
+                        }
+                        typeFields.add(typeField);
+                        try {
+                            Class<?>[] clsTypes = method.getParameterTypes();
+                            int i = 0;
+                            int index = 0;
+                            List<String> names = GraphQLTypeUtils.getArguments(method);
+                            for (Class<?> clsType : clsTypes) {
+                                if (clsType.isPrimitive() || GraphQLTypeUtils.isGraphQLPrimitive(clsType)) {
+                                    GraphQLScalarType scalarType = GraphQLTypeUtils.getType(clsType);
+                                    GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(names.get(index));
+                                    builder.type(GraphQLNonNull.nonNull(scalarType));
+                                    typeField.addArgument(builder.build());
+                                } else {
+                                    if (Collection.class.isAssignableFrom(clsType)) {
+                                        LinkedList<String> typesFromIndex = GraphQLTypeUtils.getTypesFromIndex(method, i);
+                                        GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(names.get(index));
+
+                                        if (typesFromIndex.size() > 0) {
+                                            String typeStr = typesFromIndex.get(0);
+                                            Class<?> typeClz = Class.forName(typeStr);
+                                            builder.type(GraphQLList.list(GraphQLTypeReference.typeRef(typeClz.getSimpleName())));
+                                            typeField.addArgument(builder.build());
+                                            i++;
+                                        } else {
+                                            builder.type(GraphQLList.list(GraphQLTypeReference.typeRef(clsType.getSimpleName())));
+                                            typeField.addArgument(builder.build());
+                                        }
+                                    } else {
+                                        GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(names.get(index));
+                                        builder.type(GraphQLTypeReference.typeRef(clsType.getSimpleName()));
+                                        typeField.addArgument(builder.build());
+                                    }
+                                }
+                                index++;
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+
+                        typeFieldMap.put(methodQueryValue, typeFields);
+
                         DataFetcher df = dataFetchingEnvironment -> {
                             GraphQLContextUtil.add(dataFetchingEnvironment);
 
@@ -252,6 +325,11 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
         }
         this.wfResolvers = resolvers;
         if (graphqlProperties.isLog()) {
+            if (!typeFieldMap.isEmpty()) {
+                typeFieldMap.forEach((s, typeFields) -> {
+                    logger.info("Type field @ "+s +" "+ typeFields);
+                });
+            }
             if (originClassResolvers != null) {
                 originClassResolvers.forEach((k, v) -> {
                     logger.info("GraphQL resolvers @" + k + " ===>" + v);
@@ -278,6 +356,34 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
             }
             logger.info("init GraphQL end.");
         }
+    }
+
+    public Map<String, Set<TypeField>> getTypeFieldMap() {
+        return typeFieldMap;
+    }
+
+    private GraphQLOutputType getFieldType(Method method) {
+        method.setAccessible(true);
+        Class<?> returnType = method.getReturnType();
+        boolean isPrimitive = returnType.isPrimitive();
+        if (isPrimitive || isGraphQLPrimitive(returnType)) {
+            GraphQLOutputType objectFieldType = GraphQLTypeUtils.getType(returnType);
+            return objectFieldType;
+        } else {
+            if (Collection.class.isAssignableFrom(returnType)) {
+                ParameterizedType typeListType = (ParameterizedType) method.getGenericReturnType();
+                Class<?> typeListClass = (Class<?>) typeListType.getActualTypeArguments()[0];
+                GraphQLType objectFieldType = GraphQLTypeUtils.getType(typeListClass);
+                if (objectFieldType != null) {
+                    return GraphQLList.list(objectFieldType);
+                } else {
+                    return GraphQLList.list(GraphQLTypeReference.typeRef(typeListClass.getSimpleName()));
+                }
+            } else {
+                return GraphQLTypeReference.typeRef(returnType.getSimpleName());
+            }
+        }
+
     }
 
     private List<Object> getArguments(Method method) throws Exception {
@@ -335,6 +441,10 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
             i++;
         }
         return list;
+    }
+
+    protected Map<String, Map<String, DataFetcher>> getResolvers() {
+        return wfResolvers;
     }
 
     public List<TypeRuntimeWiring.Builder> getBuilders() {
