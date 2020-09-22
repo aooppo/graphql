@@ -2,7 +2,6 @@ package cc.voox.graphql;
 
 import cc.voox.graphql.annotation.ObjectField;
 import cc.voox.graphql.annotation.ObjectType;
-import cc.voox.graphql.annotation.Query;
 import cc.voox.graphql.metadata.TypeEntity;
 import cc.voox.graphql.metadata.TypeField;
 import cc.voox.graphql.utils.GraphQLTypeUtils;
@@ -17,32 +16,28 @@ import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrume
 import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions;
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.DataFetcher;
-import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLEnumType;
-import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLFieldDefinition;
 import graphql.schema.GraphQLInputObjectField;
 import graphql.schema.GraphQLInputObjectType;
-import graphql.schema.GraphQLInterfaceType;
 import graphql.schema.GraphQLList;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLOutputType;
 import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLSchema;
-import graphql.schema.GraphQLType;
 import graphql.schema.GraphQLTypeReference;
 import graphql.schema.GraphqlTypeBuilder;
+import graphql.schema.TypeResolver;
 import graphql.schema.idl.RuntimeWiring;
 import graphql.schema.idl.SchemaGenerator;
 import graphql.schema.idl.SchemaParser;
 import graphql.schema.idl.TypeDefinitionRegistry;
+import graphql.schema.idl.TypeRuntimeWiring;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.stereotype.Component;
-import org.springframework.util.ClassUtils;
 import org.springframework.util.ReflectionUtils;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -52,12 +47,15 @@ import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 
 import static cc.voox.graphql.utils.GraphQLTypeUtils.isGraphQLPrimitive;
@@ -73,7 +71,8 @@ public class GraphQLProvider {
 
     private GraphQL graphQL;
     private List<TypeEntity> typeEntityList = new ArrayList<>();
-    private Set<GraphQLType> additionalTypes = new HashSet<>();
+//    private Set<GraphQLType> additionalTypes = new HashSet<>();
+    private Map<String, GraphqlTypeBuilder> additionalTypesBuilders = new HashMap<>();
 
     void initSchema() {
         if (!graphqlProperties.isEnableCodeMode()) {
@@ -106,8 +105,7 @@ public class GraphQLProvider {
                     }
                     builder.field(graphQLFieldDefinition.build());
                 });
-                GraphQLInputObjectType objectType = builder.build();
-                additionalTypes.add(objectType);
+                additionalTypesBuilders.put(typeEntity.getName(), builder);
             } else if(typeEntity.isEnumType()) {
                 GraphQLEnumType.Builder builder = GraphQLEnumType.newEnum()
                         .name(typeEntity.getName())
@@ -115,16 +113,9 @@ public class GraphQLProvider {
 
                 typeEntity.getTypeField().stream().forEach(typeField -> {
 
-//                    builder.value(GraphQLEnumValueDefinition.newEnumValueDefinition()
-//                            .name(typeField.getValue())
-//                            .description(typeField.getDescription())
-//                            .type((GraphQLInputObjectType.Builder) typeField.getType())
-//                            .build());
 
 
                 });
-//                GraphQLInputObjectType objectType = builder.build();
-//                additionalTypes.add(objectType);
             }else {
                 GraphQLObjectType.Builder builder = GraphQLObjectType.newObject()
                         .name(typeEntity.getName())
@@ -145,8 +136,7 @@ public class GraphQLProvider {
                     builder.field(graphQLFieldDefinition.build());
 
                 });
-                GraphQLObjectType objectType = builder.build();
-                additionalTypes.add(objectType);
+                additionalTypesBuilders.put(typeEntity.getName(), builder);
             }
         });
     }
@@ -245,41 +235,73 @@ public class GraphQLProvider {
     }
 
     private GraphQLSchema buildSchema() {
-        if(additionalTypes.size() > 0) {
+        if(additionalTypesBuilders.size() > 0) {
+            RuntimeWiring runtimeWiring = buildWiring();
             Map<String, Map<String, DataFetcher>> resolvers = graphqlResolverFactory.getResolvers();
             Map<String, Set<TypeField>> typeFieldMap = graphqlResolverFactory.getTypeFieldMap();
             GraphQLSchema.Builder schemaBuilder = GraphQLSchema.newSchema();
             Set<TypeField> queries = typeFieldMap.get("Query");
             Set<TypeField> mutations = typeFieldMap.get("Mutation");
-            Map<String, DataFetcher> dataFetcherMap = resolvers.get("Query");
+            Map<String, DataFetcher> queryResolvers = resolvers.get("Query");
             Map<String, DataFetcher> mutationResolvers = resolvers.get("Mutation");
+
             GraphQLObjectType.Builder queryBuilder = GraphQLObjectType.newObject().name("query");
             GraphQLObjectType.Builder mutationBuilder = GraphQLObjectType.newObject().name("mutation");
-            queries.forEach(tf -> {
-                queryBuilder.field(builder -> {
-                    builder.name(tf.getValue());
-                    builder.type((GraphQLOutputType) tf.getType());
-                    builder.arguments(tf.getArguments());
-                    builder.dataFetcher(dataFetcherMap.get(tf.getValue()));
-                    return builder;
-                }).build();
+
+            setBuilder(queries, queryResolvers, queryBuilder);
+            setBuilder(mutations, mutationResolvers, mutationBuilder);
+            Set<String> keys = new HashSet<>();
+            keys.add("Query");
+            keys.add("Mutation");
+            typeFieldMap.forEach((s, typeFields) -> {
+                if(!Arrays.asList("Query", "Mutation").contains(s)) {
+                    GraphqlTypeBuilder builder = additionalTypesBuilders.get(s);
+                    if(builder instanceof  GraphQLInputObjectType.Builder) {
+                        GraphQLInputObjectType.Builder extraBuilder = (GraphQLInputObjectType.Builder) builder;
+//                        setBuilder(typeFields, resolvers.get(s), extraBuilder);
+                        schemaBuilder.additionalType(extraBuilder.build());
+                    } else {
+                        GraphQLObjectType.Builder extraBuilder = (GraphQLObjectType.Builder) builder;
+                        setBuilder(typeFields, resolvers.get(s), extraBuilder);
+                        schemaBuilder.additionalType(extraBuilder.build());
+                    }
+
+                    keys.add(s);
+//                    setBuilder(typeFields, resolvers.get(s), extraBuilder);
+
+                }
             });
-            mutations.forEach(tf -> {
-                mutationBuilder.field(builder -> {
-                    builder.name(tf.getValue());
-                    builder.type((GraphQLOutputType) tf.getType());
-                    builder.arguments(tf.getArguments());
-                    builder.dataFetcher(mutationResolvers.get(tf.getValue()));
-                    return builder;
-                }).build();
+            additionalTypesBuilders.forEach((s, graphqlTypeBuilder) -> {
+                if (!keys.contains(s)) {
+                    if (graphqlTypeBuilder instanceof GraphQLObjectType.Builder) {
+                        GraphQLObjectType.Builder builder = (GraphQLObjectType.Builder) graphqlTypeBuilder;
+                        schemaBuilder.additionalType(builder.build());
+                    } else if (graphqlTypeBuilder instanceof GraphQLInputObjectType.Builder) {
+                        GraphQLInputObjectType.Builder builder = (GraphQLInputObjectType.Builder) graphqlTypeBuilder;
+                        schemaBuilder.additionalType(builder.build());
+                    }
+                }
             });
             schemaBuilder.query(queryBuilder.build());
             schemaBuilder.mutation(mutationBuilder.build());
-            return schemaBuilder.additionalTypes(additionalTypes).build();
+
+            return schemaBuilder.build();
 
         } else {
             throw new Error("No found graphql schema.");
         }
+    }
+
+    private void setBuilder(Set<TypeField> queries, Map<String, DataFetcher> dataFetcherMap, GraphQLObjectType.Builder queryBuilder) {
+        queries.forEach(tf -> queryBuilder.field(builder -> {
+            builder.name(tf.getValue());
+            builder.type((GraphQLOutputType) tf.getType());
+            builder.arguments(tf.getArguments());
+//            GraphQLDirective.Builder b = GraphQLDirective.newDirective().
+//            builder.withDirectives();
+            builder.dataFetcher(dataFetcherMap.get(tf.getValue()));
+            return builder;
+        }).build());
     }
 
     private GraphQLSchema buildSchema(String sdl) {
@@ -297,6 +319,7 @@ public class GraphQLProvider {
 
     private RuntimeWiring buildWiring() {
         RuntimeWiring.Builder rb = RuntimeWiring.newRuntimeWiring();
+
         //build scalars
         graphqlResolverFactory.getScalarSet().forEach(s -> {
             rb.scalar(GraphQLScalarType.newScalar().name(s.getName()).description(s.getDescription()).coercing(s).build());

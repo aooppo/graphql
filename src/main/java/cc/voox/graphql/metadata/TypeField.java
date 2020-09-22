@@ -1,5 +1,6 @@
 package cc.voox.graphql.metadata;
 
+import cc.voox.graphql.IDirective;
 import graphql.schema.GraphQLArgument;
 
 import java.util.LinkedList;
@@ -12,6 +13,19 @@ public class TypeField<T> {
 
     private T type;
     private List<GraphQLArgument> arguments = new LinkedList<>();
+    private List<IDirective> directiveList = new LinkedList<>();
+
+    public List<IDirective> getDirectiveList() {
+        return directiveList;
+    }
+
+    public void setDirectiveList(List<IDirective> directiveList) {
+        this.directiveList = directiveList;
+    }
+
+    public void addDirective(IDirective directive) {
+        this.directiveList.add(directive);
+    }
 
     public String getValue() {
         return value;

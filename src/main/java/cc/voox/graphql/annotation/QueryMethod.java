@@ -21,6 +21,4 @@ public @interface QueryMethod {
      */
     String type() default "";
 
-    boolean required() default false;
-
 }

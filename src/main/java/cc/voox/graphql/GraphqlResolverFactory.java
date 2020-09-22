@@ -4,6 +4,7 @@ import cc.voox.graphql.annotation.ObjectType;
 import cc.voox.graphql.annotation.Query;
 import cc.voox.graphql.annotation.QueryField;
 import cc.voox.graphql.annotation.QueryMethod;
+import cc.voox.graphql.metadata.TypeArgument;
 import cc.voox.graphql.metadata.TypeField;
 import cc.voox.graphql.utils.AOPUtil;
 import cc.voox.graphql.utils.BeanUtil;
@@ -15,6 +16,7 @@ import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLArgument;
+import graphql.schema.GraphQLInputObjectType;
 import graphql.schema.GraphQLList;
 import graphql.schema.GraphQLNonNull;
 import graphql.schema.GraphQLOutputType;
@@ -54,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 import static cc.voox.graphql.utils.GraphQLTypeUtils.isGraphQLPrimitive;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -203,7 +206,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                     continue;
                 } else if(c.isAnnotationPresent(ObjectType.class)) {
                     typeList.add(c);
-                    continue;
+//                    continue;
                 }
                 String queryValue = null;
                 if (c.isAnnotationPresent(Query.class)) {
@@ -212,6 +215,10 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                 } else {
                     if (set.contains(IGraphQL.class) || IGraphQL.class.isAssignableFrom(c)) {
                         queryValue = c.getSimpleName();
+                    } else {
+                        if(c.isAnnotationPresent(ObjectType.class)) {
+                            continue;
+                        }
                     }
                 }
                 String value = queryValue;
@@ -254,6 +261,7 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                         TypeField typeField = new TypeField();
                         typeField.setValue(methodValue);
                         typeField.setType(getFieldType(method));
+
                         Set<TypeField> typeFields = typeFieldMap.get(methodQueryValue);
                         if(typeFields == null) {
                             typeFields = new HashSet<>();
@@ -263,31 +271,45 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
                             Class<?>[] clsTypes = method.getParameterTypes();
                             int i = 0;
                             int index = 0;
-                            List<String> names = GraphQLTypeUtils.getArguments(method);
+                            List<Class<? extends IDirective>> directiveList = GraphQLTypeUtils.getDirectives(method);
+                            List<? extends IDirective> collect = directiveList.stream().map(aClass -> this.context.getBean(aClass)).collect(Collectors.toList());
+                            typeField.setDirectiveList(collect);
+                            List<TypeArgument> typeArguments = GraphQLTypeUtils.getArguments(method);
                             for (Class<?> clsType : clsTypes) {
+                                TypeArgument typeArgument = typeArguments.get(index);
+                                if (typeArgument.isRoot()) {
+                                    continue;
+                                }
                                 if (clsType.isPrimitive() || GraphQLTypeUtils.isGraphQLPrimitive(clsType)) {
                                     GraphQLScalarType scalarType = GraphQLTypeUtils.getType(clsType);
-                                    GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(names.get(index));
-                                    builder.type(GraphQLNonNull.nonNull(scalarType));
+                                    GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(typeArgument.getName());
+                                    builder.description(typeArgument.getDescription());
+                                    builder.type(typeArgument.isRequired()? GraphQLNonNull.nonNull(scalarType): scalarType);
                                     typeField.addArgument(builder.build());
                                 } else {
                                     if (Collection.class.isAssignableFrom(clsType)) {
                                         LinkedList<String> typesFromIndex = GraphQLTypeUtils.getTypesFromIndex(method, i);
-                                        GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(names.get(index));
+                                        GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(typeArgument.getName());
 
                                         if (typesFromIndex.size() > 0) {
                                             String typeStr = typesFromIndex.get(0);
                                             Class<?> typeClz = Class.forName(typeStr);
-                                            builder.type(GraphQLList.list(GraphQLTypeReference.typeRef(typeClz.getSimpleName())));
+                                            GraphQLList graphQLList = GraphQLList.list(GraphQLTypeReference.typeRef(typeClz.getSimpleName()));
+                                            builder.description(typeArgument.getDescription());
+                                            builder.type(typeArgument.isRequired()? GraphQLNonNull.nonNull(graphQLList): graphQLList);
                                             typeField.addArgument(builder.build());
                                             i++;
                                         } else {
-                                            builder.type(GraphQLList.list(GraphQLTypeReference.typeRef(clsType.getSimpleName())));
+                                            GraphQLList graphQLList = GraphQLList.list(GraphQLTypeReference.typeRef(clsType.getSimpleName()));
+                                            builder.description(typeArgument.getDescription());
+                                            builder.type(typeArgument.isRequired()? GraphQLNonNull.nonNull(graphQLList): graphQLList);
                                             typeField.addArgument(builder.build());
                                         }
                                     } else {
-                                        GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(names.get(index));
-                                        builder.type(GraphQLTypeReference.typeRef(clsType.getSimpleName()));
+                                        GraphQLArgument.Builder builder = GraphQLArgument.newArgument().name(typeArgument.getName());
+                                        builder.description(typeArgument.getDescription());
+                                        builder.type(typeArgument.isRequired() ? GraphQLNonNull.nonNull(GraphQLTypeReference.typeRef(clsType.getSimpleName()))
+                                                : GraphQLTypeReference.typeRef(clsType.getSimpleName()));
                                         typeField.addArgument(builder.build());
                                     }
                                 }

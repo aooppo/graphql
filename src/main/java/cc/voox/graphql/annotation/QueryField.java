@@ -24,4 +24,9 @@ public @interface QueryField {
      */
     boolean root() default false;
 
+    boolean required() default false;
+
+    String description() default "";
+
+    Class<?> type() default Void.class;
 }

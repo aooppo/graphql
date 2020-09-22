@@ -1,7 +1,10 @@
 package cc.voox.graphql.utils;
 
 import cc.voox.graphql.GraphQLContextUtil;
+import cc.voox.graphql.IDirective;
+import cc.voox.graphql.annotation.Directive;
 import cc.voox.graphql.annotation.QueryField;
+import cc.voox.graphql.metadata.TypeArgument;
 import graphql.Scalars;
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLScalarType;
@@ -15,26 +18,35 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static graphql.Scalars.GraphQLString;
 
 public class GraphQLTypeUtils {
 
-    public static List<String> getArguments(Method method) throws Exception {
+    public static List<TypeArgument> getArguments(Method method) throws Exception {
         if (method == null) {
             throw new RuntimeException("Method is null.");
         }
-        List<String> list = new ArrayList<>();
+        List<TypeArgument> list = new ArrayList<>();
         Annotation[][] ats = method.getParameterAnnotations();
         for (Annotation[] as : ats) {
 
             for (Annotation a : as) {
                 QueryField queryField = AnnotationUtils.getAnnotation(a, QueryField.class);
                 if (queryField != null) {
-                    list.add(queryField.value());
+                    TypeArgument typeArgument = new TypeArgument();
+                    typeArgument.setName(queryField.value());
+                    typeArgument.setRequired(queryField.required());
+                    typeArgument.setDescription(queryField.description());
+                    typeArgument.setInputType(queryField.type());
+                    typeArgument.setRoot(queryField.root());
+                    list.add(typeArgument);
                 }
             }
         }
@@ -150,4 +162,16 @@ public class GraphQLTypeUtils {
         return objects.contains(fieldType);
     }
 
+    public static List<Class<? extends IDirective>> getDirectives(Method method) {
+        if (method == null) {
+            return Collections.emptyList();
+        } else {
+            if (method.isAnnotationPresent(Directive.class)) {
+                Directive[] annotationsByType = method.getAnnotationsByType(Directive.class);
+                return Stream.of(annotationsByType).map(Directive::value).collect(Collectors.toList());
+            } else {
+                return Collections.emptyList();
+            }
+        }
+    }
 }
