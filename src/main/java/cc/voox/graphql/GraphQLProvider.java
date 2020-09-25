@@ -17,6 +17,7 @@ import graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrume
 import graphql.scalars.ExtendedScalars;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLEnumType;
+import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLFieldDefinition;
 import graphql.schema.GraphQLInputObjectField;
 import graphql.schema.GraphQLInputObjectType;
@@ -57,6 +58,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static cc.voox.graphql.utils.GraphQLTypeUtils.isGraphQLPrimitive;
 
@@ -110,12 +112,12 @@ public class GraphQLProvider {
                 GraphQLEnumType.Builder builder = GraphQLEnumType.newEnum()
                         .name(typeEntity.getName())
                         .description(typeEntity.getDescription());
-
-                typeEntity.getTypeField().stream().forEach(typeField -> {
-
-
-
+                typeEntity.getValues().stream().forEach(o -> {
+                    if( o != null) {
+                        builder.value(o.toString(), o);
+                    }
                 });
+                additionalTypesBuilders.put(typeEntity.getName(), builder);
             }else {
                 GraphQLObjectType.Builder builder = GraphQLObjectType.newObject()
                         .name(typeEntity.getName())
@@ -150,8 +152,13 @@ public class GraphQLProvider {
         typeEntity.setName(value);
         typeEntity.setDescription(objectType.description());
         typeEntity.setInputType(objectType.inputType());
+        typeEntity.setEnumType(clz.isEnum());
         List<TypeField> typeFields = initFields(clz);
         typeEntity.setTypeField(typeFields);
+        if (clz.isEnum()) {
+            Object[] enumConstants = clz.getEnumConstants();
+            typeEntity.setValues(Stream.of(enumConstants).collect(Collectors.toList()));
+        }
         return typeEntity;
     }
 
@@ -236,7 +243,6 @@ public class GraphQLProvider {
 
     private GraphQLSchema buildSchema() {
         if(additionalTypesBuilders.size() > 0) {
-            RuntimeWiring runtimeWiring = buildWiring();
             Map<String, Map<String, DataFetcher>> resolvers = graphqlResolverFactory.getResolvers();
             Map<String, Set<TypeField>> typeFieldMap = graphqlResolverFactory.getTypeFieldMap();
             GraphQLSchema.Builder schemaBuilder = GraphQLSchema.newSchema();
@@ -256,30 +262,14 @@ public class GraphQLProvider {
             typeFieldMap.forEach((s, typeFields) -> {
                 if(!Arrays.asList("Query", "Mutation").contains(s)) {
                     GraphqlTypeBuilder builder = additionalTypesBuilders.get(s);
-                    if(builder instanceof  GraphQLInputObjectType.Builder) {
-                        GraphQLInputObjectType.Builder extraBuilder = (GraphQLInputObjectType.Builder) builder;
-//                        setBuilder(typeFields, resolvers.get(s), extraBuilder);
-                        schemaBuilder.additionalType(extraBuilder.build());
-                    } else {
-                        GraphQLObjectType.Builder extraBuilder = (GraphQLObjectType.Builder) builder;
-                        setBuilder(typeFields, resolvers.get(s), extraBuilder);
-                        schemaBuilder.additionalType(extraBuilder.build());
-                    }
-
+                    setTypes(schemaBuilder, builder);
                     keys.add(s);
-//                    setBuilder(typeFields, resolvers.get(s), extraBuilder);
 
                 }
             });
             additionalTypesBuilders.forEach((s, graphqlTypeBuilder) -> {
                 if (!keys.contains(s)) {
-                    if (graphqlTypeBuilder instanceof GraphQLObjectType.Builder) {
-                        GraphQLObjectType.Builder builder = (GraphQLObjectType.Builder) graphqlTypeBuilder;
-                        schemaBuilder.additionalType(builder.build());
-                    } else if (graphqlTypeBuilder instanceof GraphQLInputObjectType.Builder) {
-                        GraphQLInputObjectType.Builder builder = (GraphQLInputObjectType.Builder) graphqlTypeBuilder;
-                        schemaBuilder.additionalType(builder.build());
-                    }
+                    setTypes(schemaBuilder, graphqlTypeBuilder);
                 }
             });
             schemaBuilder.query(queryBuilder.build());
@@ -289,6 +279,19 @@ public class GraphQLProvider {
 
         } else {
             throw new Error("No found graphql schema.");
+        }
+    }
+
+    private void setTypes(GraphQLSchema.Builder schemaBuilder, GraphqlTypeBuilder graphqlTypeBuilder) {
+        if (graphqlTypeBuilder instanceof GraphQLObjectType.Builder) {
+            GraphQLObjectType.Builder builder = (GraphQLObjectType.Builder) graphqlTypeBuilder;
+            schemaBuilder.additionalType(builder.build());
+        } else if(graphqlTypeBuilder instanceof  GraphQLEnumType.Builder) {
+            GraphQLEnumType.Builder extraBuilder = (GraphQLEnumType.Builder) graphqlTypeBuilder;
+            schemaBuilder.additionalType(extraBuilder.build());
+        } else if (graphqlTypeBuilder instanceof GraphQLInputObjectType.Builder) {
+            GraphQLInputObjectType.Builder builder = (GraphQLInputObjectType.Builder) graphqlTypeBuilder;
+            schemaBuilder.additionalType(builder.build());
         }
     }
 

@@ -153,6 +153,8 @@ public class GraphQLTypeUtils {
             return Scalars.GraphQLInt;
         } else if (fieldTypeClass.equals(Long.class) || fieldTypeClass.equals(long.class)) {
             return Scalars.GraphQLLong;
+        } else if (fieldTypeClass.equals(Double.class) || fieldTypeClass.equals(double.class)) {
+            return Scalars.GraphQLFloat;
         }
         return null;
     }

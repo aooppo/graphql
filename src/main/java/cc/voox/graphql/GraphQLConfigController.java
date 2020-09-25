@@ -36,7 +36,7 @@ public class GraphQLConfigController {
     @CrossOrigin
     @RequestMapping(
             value = "${graphql.url:graphql}",
-            method = {RequestMethod.POST},
+            method = {RequestMethod.POST, RequestMethod.OPTIONS, RequestMethod.HEAD},
             consumes = {"application/json"},
             produces = {"application/json;charset=UTF-8"}
     )

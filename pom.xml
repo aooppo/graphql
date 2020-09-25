@@ -3,7 +3,7 @@
 <modelVersion>4.0.0</modelVersion>
 <groupId>cc.voox</groupId>
 <artifactId>graphql-spring-boot-starter</artifactId>
-<version>1.0.4</version>
+<version>1.2.1</version>
 <packaging>jar</packaging>
 <url>https://github.com/aooppo/graphql</url>
 <description>graphql tool for java </description>
@@ -45,7 +45,21 @@
         <artifactId>graphql-java-extended-scalars</artifactId>
         <version>1.0.1</version>
     </dependency>
-
+    <dependency>
+        <groupId>com.fasterxml.jackson.module</groupId>
+        <artifactId>jackson-module-parameter-names</artifactId>
+        <version>2.10.5</version>
+    </dependency>
+    <dependency>
+        <groupId>com.fasterxml.jackson.datatype</groupId>
+        <artifactId>jackson-datatype-jdk8</artifactId>
+        <version>2.10.5</version>
+    </dependency>
+    <dependency>
+        <groupId>com.fasterxml.jackson.datatype</groupId>
+        <artifactId>jackson-datatype-jsr310</artifactId>
+        <version>2.10.5</version>
+    </dependency>
     <dependency>
         <groupId>com.graphql-java</groupId>
         <artifactId>graphql-java</artifactId>

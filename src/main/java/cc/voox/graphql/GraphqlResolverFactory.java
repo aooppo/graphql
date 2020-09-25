@@ -12,6 +12,9 @@ import cc.voox.graphql.utils.GraphQLTypeUtils;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.module.paramnames.ParameterNamesModule;
 import graphql.GraphQLException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -77,6 +80,9 @@ public class GraphqlResolverFactory implements ApplicationContextAware {
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper responseMapper = new ObjectMapper();
+        responseMapper.registerModule(new ParameterNamesModule())
+                .registerModule(new Jdk8Module())
+                .registerModule(new JavaTimeModule());
         responseMapper.addMixIn(Object.class, JsonIgnore.class);
         responseMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         return responseMapper;

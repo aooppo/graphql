@@ -8,6 +8,15 @@ public class TypeEntity {
     private boolean inputType;
     private boolean enumType;
     private List<TypeField> typeField;
+    private List<Object> values;
+
+    public List<Object> getValues() {
+        return values;
+    }
+
+    public void setValues(List<Object> values) {
+        this.values = values;
+    }
 
     public boolean isEnumType() {
         return enumType;
