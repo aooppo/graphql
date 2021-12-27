@@ -3,7 +3,7 @@
 <modelVersion>4.0.0</modelVersion>
 <groupId>cc.voox</groupId>
 <artifactId>graphql</artifactId>
-<version>0.9.2</version>
+<version>0.9.3</version>
 <packaging>jar</packaging>
 <url>https://github.com/aooppo/graphql</url>
 <description>graphql tool for java </description>
@@ -61,7 +61,7 @@
     <dependency>
         <groupId>com.google.guava</groupId>
         <artifactId>guava</artifactId>
-        <version>29.0-jre</version>
+        <version>31.0.1-jre</version>
     </dependency>
 
     <dependency>
@@ -101,7 +101,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>2.9.1</version>
+                    <version>2.10.4</version>
                     <executions>
                         <execution>
                             <phase>package</phase>
