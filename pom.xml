@@ -82,13 +82,19 @@
         <id>default</id>
         <activation>
             <activeByDefault>true</activeByDefault>
+            <property>
+                <name>voox</name>
+            </property>
         </activation>
         <build>
             <plugins>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
-                    <version>2.2.1</version>
+                    <version>2.4</version>
+                    <configuration>
+                        <attach>true</attach>
+                    </configuration>
                     <executions>
                         <execution>
                             <phase>package</phase>
@@ -102,22 +108,31 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>2.10.4</version>
+                    <configuration>
+                        <!--指定编码为UTF-8-->
+                        <encoding>UTF-8</encoding>
+                        <aggregate>true</aggregate>
+                        <charset>UTF-8</charset>
+                        <docencoding>UTF-8</docencoding>
+                    </configuration>
                     <executions>
                         <execution>
-                            <phase>package</phase>
+                            <id>attach-javadocs</id>
                             <goals>
                                 <goal>jar</goal>
                             </goals>
+                            <configuration>
+                                <additionalparam>-Xdoclint:none</additionalparam>
+                            </configuration>
                         </execution>
                     </executions>
                 </plugin>
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-gpg-plugin</artifactId>
                     <version>1.6</version>
-                    <configuration>
-                        <skip>true</skip>
-                    </configuration>
+
                     <executions>
                         <execution>
                             <phase>verify</phase>
