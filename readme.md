@@ -1,4 +1,7 @@
 ![Travis (.org)](https://travis-ci.org/aooppo/graphql.svg?branch=master)
+  <a href="https://maven-badges.herokuapp.com/maven-central/cc.voox/graphql/">
+            <img src="https://maven-badges.herokuapp.com/maven-central/cc.voox/graphql/badge.svg" >
+        </a>
 
 # Install
 - add dependencies into pom.xml
@@ -6,7 +9,7 @@
 <dependency>
     <groupId>cc.voox</groupId>
     <artifactId>graphql</artifactId>
-    <version>0.8.1</version>
+    <version>0.9.3</version>
 </dependency>
 ```
 
